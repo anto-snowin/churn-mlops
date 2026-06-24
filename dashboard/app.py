@@ -22,7 +22,7 @@ import plotly.graph_objects as go
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Replace with your live Render URL after deployment
-API_URL = "https://your-app.onrender.com"
+API_URL = "https://churn-mlops-v2i2.onrender.com"
 
 # For local development, uncomment this line:
 # API_URL = "http://127.0.0.1:8000"
