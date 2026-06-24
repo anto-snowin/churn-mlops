@@ -92,30 +92,52 @@ def load_model():
     """
     Load the model from MLflow registry first, fall back to local joblib.
 
+    Includes retry logic for Render's free-tier cold start, where the
+    container boots fresh and MLflow/network connections may need a
+    few attempts to succeed.
+
     Priority:
-        1. MLflow model URI (MODEL_URI env var)
+        1. MLflow model URI (MODEL_URI env var) — with retries
         2. Local file: model/model.joblib
     """
+    import time
+
     global model, feature_names
 
-    # ── Try MLflow first ──────────────────────────────────────────────────────
-    try:
-        import mlflow
+    # ── Try MLflow with retries (handles Render cold start) ───────────────────
+    mlflow_tracking_uri = os.getenv("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+    max_retries = 3
+    retry_delay = 2  # seconds, doubles each attempt (exponential backoff)
 
-        mlflow.set_tracking_uri("sqlite:///mlflow.db")
-        model = mlflow.sklearn.load_model(MODEL_URI)
-        logger.info(f"Model loaded from MLflow: {MODEL_URI}")
-    except Exception as e:
-        logger.warning(f"MLflow load failed ({e}), trying local joblib fallback...")
+    for attempt in range(1, max_retries + 1):
+        try:
+            import mlflow
 
-        # ── Joblib fallback ───────────────────────────────────────────────────
-        local_path = PROJECT_ROOT / "model" / "model.joblib"
-        if local_path.exists():
-            model = joblib.load(local_path)
-            logger.info(f"Model loaded from local file: {local_path}")
-        else:
-            logger.error("No model found! Train a model first with: python src/train.py")
-            model = None
+            mlflow.set_tracking_uri(mlflow_tracking_uri)
+            model = mlflow.sklearn.load_model(MODEL_URI)
+            logger.info(f"Model loaded from MLflow: {MODEL_URI} (attempt {attempt})")
+            break
+        except Exception as e:
+            logger.warning(
+                f"MLflow load attempt {attempt}/{max_retries} failed: {e}"
+            )
+            if attempt < max_retries:
+                logger.info(f"Retrying in {retry_delay}s...")
+                time.sleep(retry_delay)
+                retry_delay *= 2  # exponential backoff: 2s → 4s → 8s
+            else:
+                logger.warning("All MLflow attempts failed, trying local joblib fallback...")
+
+                # ── Joblib fallback ───────────────────────────────────────────
+                local_path = PROJECT_ROOT / "model" / "model.joblib"
+                if local_path.exists():
+                    model = joblib.load(local_path)
+                    logger.info(f"Model loaded from local file: {local_path}")
+                else:
+                    logger.error(
+                        "No model found! Train a model first with: python src/train.py"
+                    )
+                    model = None
 
     # ── Load feature names if available ───────────────────────────────────────
     fn_path = PROJECT_ROOT / "model" / "feature_names.json"
