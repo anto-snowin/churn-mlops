@@ -1,0 +1,93 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# ci-cd.yml — Continuous Integration & Deployment
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Trigger:  Push to main/develop, Pull Requests to main
+# Pipeline: test → build → deploy
+#
+# Required Secrets:
+#   DOCKER_USERNAME       — Docker Hub username
+#   DOCKER_PASSWORD       — Docker Hub access token
+#   RENDER_DEPLOY_HOOK    — Render deploy webhook URL
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+# ── Job 1: Test ───────────────────────────────────────────────────────────────
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+
+    env:
+      # FIX for "ModuleNotFoundError: No module named 'api'" or 'src'
+      # Without this, pytest can't resolve imports like "from api.schemas import ..."
+      # because GitHub Actions runs from the repo root but Python doesn't
+      # automatically add it to sys.path.
+      PYTHONPATH: .
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ -v --tb=short
+
+  # ── Job 2: Build & Push Docker Image ──────────────────────────────────────
+  build:
+    name: Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/churn-mlops:latest
+
+  # ── Job 3: Deploy to Render ───────────────────────────────────────────────
+  deploy:
+    name: Deploy to Render
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Trigger Render deploy webhook
+        run: |
+          echo "Triggering Render deployment..."
+          RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" "${{ secrets.RENDER_DEPLOY_HOOK }}")
+          echo "Render responded with HTTP $RESPONSE"
+          if [ "$RESPONSE" -lt 200 ] || [ "$RESPONSE" -ge 400 ]; then
+            echo "ERROR: Render deploy failed with HTTP $RESPONSE"
+            exit 1
+          fi
+          echo "Deploy triggered successfully"

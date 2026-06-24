@@ -1,0 +1,22 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# dvc.yaml — Reproducible ML pipeline (preprocess → train)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+stages:
+  preprocess:
+    cmd: python src/data_preprocessing.py
+    deps:
+      - src/data_preprocessing.py
+      - data/raw/WA_Fn-UseC_-Telco-Customer-Churn.csv
+    outs:
+      - data/processed/churn_processed.csv
+
+  train:
+    cmd: python src/train.py
+    deps:
+      - src/train.py
+      - src/data_preprocessing.py
+      - data/processed/churn_processed.csv
+    params:
+      - model.n_estimators
+      - model.random_state

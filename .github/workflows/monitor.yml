@@ -1,0 +1,84 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# monitor.yml — Scheduled Drift Monitoring & Auto-Retrain
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Schedule: Every Monday at 9:00 AM UTC
+# Manual:   Can also be triggered from GitHub Actions UI (workflow_dispatch)
+#
+# What it does:
+#   1. Pulls latest data from DVC remote
+#   2. Runs retrain_trigger.py (checks drift → retrains if needed)
+#   3. If model was retrained: pushes new data to DVC + commits dvc.lock
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+name: Weekly Drift Monitor
+
+on:
+  schedule:
+    # Every Monday at 9:00 AM UTC
+    - cron: "0 9 * * MON"
+  workflow_dispatch:
+    # Allow manual trigger from the Actions tab
+
+jobs:
+  drift_check:
+    name: Check Drift & Retrain
+    runs-on: ubuntu-latest
+
+    env:
+      PYTHONPATH: .
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history so git push works
+          fetch-depth: 0
+
+      - name: Set up Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Pull latest data from DVC remote
+        run: dvc pull
+        env:
+          # If using Google Drive remote, set service account credentials
+          # as a GitHub Secret containing the JSON key file contents
+          GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+
+      - name: Run retrain trigger
+        id: retrain
+        run: |
+          # Run retrain_trigger.py and capture its exit code
+          # Exit code 0 = no retrain needed, model is fine
+          # Exit code 0 with "RETRAINED" in output = model was retrained
+          python src/retrain_trigger.py 2>&1 | tee retrain_output.txt
+
+          if grep -q "RETRAINED" retrain_output.txt; then
+            echo "retrained=true" >> $GITHUB_OUTPUT
+            echo "Model was retrained due to drift"
+          else
+            echo "retrained=false" >> $GITHUB_OUTPUT
+            echo "No retraining needed"
+          fi
+
+      - name: Push updated data to DVC remote
+        if: steps.retrain.outputs.retrained == 'true'
+        run: dvc push
+        env:
+          GDRIVE_CREDENTIALS_DATA: ${{ secrets.GDRIVE_CREDENTIALS_DATA }}
+
+      - name: Commit and push dvc.lock
+        if: steps.retrain.outputs.retrained == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add dvc.lock
+          git commit -m "ci: auto-retrain model after drift detection [skip ci]"
+          git push

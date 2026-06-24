@@ -1,0 +1,46 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# docker-compose.yml — Multi-service architecture
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# Start:  docker compose up --build
+# Stop:   docker compose down
+# Logs:   docker compose logs -f
+#
+# Services:
+#   api    → http://localhost:8000  (Churn Prediction API)
+#   mlflow → http://localhost:5000  (MLflow Tracking Server)
+#
+# ═══════════════════════════════════════════════════════════════════════════════
+
+services:
+  # ── Service 1: Churn Prediction API ─────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: churn-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_URI=models:/churn_GradientBoosting/Production
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+    volumes:
+      # Mount model directory so container uses latest trained model
+      - ./model:/app/model
+      # Persist predictions database across restarts
+      - ./predictions.db:/app/predictions.db
+    depends_on:
+      - mlflow
+    restart: unless-stopped
+
+  # ── Service 2: MLflow Tracking Server ───────────────────────────────────────
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: mlflow-server
+    ports:
+      - "5000:5000"
+    volumes:
+      # Persist experiment data on the host
+      - ./mlruns:/mlruns
+    command: mlflow server --host 0.0.0.0 --port 5000
+    restart: unless-stopped

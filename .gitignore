@@ -1,0 +1,58 @@
+# ── Virtual environment ───────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+
+# ── Python bytecode ──────────────────────────────────────────────────────────
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# ── Environment / secrets ────────────────────────────────────────────────────
+.env
+
+# ── MLflow ────────────────────────────────────────────────────────────────────
+mlruns/
+mlflow.db
+mlartifacts/
+
+# ── Data files (large CSVs tracked by DVC, not git) ──────────────────────────
+# NOTE: Do NOT add *.dvc here — those are DVC pointer files that MUST be in git
+/data/raw/*.csv
+/data/processed/*.csv
+
+# ── Prediction database ──────────────────────────────────────────────────────
+predictions.db
+
+# ── Model artifacts ──────────────────────────────────────────────────────────
+model/*.joblib
+model/*.pkl
+
+# ── Reports & monitoring (regenerated) ────────────────────────────────────────
+monitoring/*.html
+monitoring/*.db
+reports/*.html
+reports/*.png
+
+# ── IDE ───────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*~
+
+# ── OS ────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+
+# ── Jupyter ───────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── Testing ───────────────────────────────────────────────────────────────────
+.pytest_cache/
+htmlcov/
+.coverage
+test-results.xml
+
+# ── Docker ────────────────────────────────────────────────────────────────────
+*.log
