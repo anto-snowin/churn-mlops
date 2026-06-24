@@ -28,8 +28,7 @@ predictions.db
 # ── Model artifacts ──────────────────────────────────────────────────────────
 # NOTE: model.joblib is NOT ignored — it must be in git for Render deployment.
 # On Render's free tier there's no MLflow server, so the API loads from this file.
-# model/*.joblib
-# model/*.pkl
+
 
 # ── Reports & monitoring (regenerated) ────────────────────────────────────────
 monitoring/*.html
