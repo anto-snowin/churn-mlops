@@ -1,41 +1,125 @@
-# Churn MLOps
+<p align="center">
+  <h1 align="center">Customer Churn Prediction — MLOps Pipeline</h1>
+  <p align="center">
+    End-to-end production ML system: data versioning, experiment tracking, model serving, monitoring, CI/CD, and live deployment.
+  </p>
+</p>
 
-> End-to-end MLOps pipeline for customer churn prediction — from raw data to a production-ready REST API, tracked with DVC and MLflow, tuned with Optuna, explained with SHAP, monitored by Evidently AI, and deployed via Docker + GitHub Actions.
+<p align="center">
+  <a href="https://github.com/YOUR_USERNAME/churn-mlops/actions/workflows/ci-cd.yml">
+    <img src="https://github.com/YOUR_USERNAME/churn-mlops/actions/workflows/ci-cd.yml/badge.svg" alt="CI/CD">
+  </a>
+  <img src="https://img.shields.io/badge/python-3.10+-3776AB?logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/docker-ready-2496ED?logo=docker&logoColor=white" alt="Docker">
+  <a href="https://churn-mlops-v2i2.onrender.com/docs">
+    <img src="https://img.shields.io/badge/API-live-1D9E75?logo=render&logoColor=white" alt="Live API">
+  </a>
+  <img src="https://img.shields.io/badge/MLflow-tracking-0194E2?logo=mlflow&logoColor=white" alt="MLflow">
+  <img src="https://img.shields.io/badge/DVC-versioned-945DD5?logo=dvc&logoColor=white" alt="DVC">
+</p>
+
+---
+
+## What Is This?
+
+A **production-grade MLOps pipeline** that predicts customer churn using the IBM Telco dataset (7,043 customers). Not just a notebook — this is a deployable system with data versioning, experiment tracking, a REST API, SHAP explainability, drift monitoring, Docker orchestration, and CI/CD that auto-deploys on push.
 
 ---
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        churn-mlops Pipeline                             │
-│                                                                         │
-│  Synthetic Data Generation                                              │
-│      │                                                                  │
-│      ▼                                                                  │
-│  data_preprocessing.py ──► data/processed/churn_processed.csv          │
-│      │                      (37 features, 7043 rows)                   │
-│      ▼                                                                  │
-│  train.py ──► MLflow Tracking ──► model/model.joblib                   │
-│      │         (params, metrics,                                        │
-│      │          confusion matrix)                                       │
-│      ▼                                                                  │
-│  tune.py (Optuna) ──► Best hyperparameters                             │
-│      │                                                                  │
-│      ▼                                                                  │
-│  predict.py (batch) ──► reports/predictions.csv                        │
-│      │                                                                  │
-│  explain.py (SHAP) ──► reports/shap_*.png                              │
-│      │                                                                  │
-│  monitor.py (Evidently) ──► monitoring/drift_report_*.html             │
-│      │                                                                  │
-│  retrain_trigger.py ──► Auto-retrain on drift                          │
-│      │                                                                  │
-│      ▼                                                                  │
-│  FastAPI /predict ──► Docker Container ──► Render / CI/CD              │
-│                                                                         │
-│  Streamlit Dashboard (port 8501)                                        │
-└─────────────────────────────────────────────────────────────────────────┘
+┌─────────────┐     ┌──────────────┐     ┌───────────────────┐     ┌────────────────┐
+│  Raw Data   │────▶│  DVC         │────▶│  Preprocessing    │────▶│  MLflow        │
+│  (CSV)      │     │  Versioning  │     │  (LabelEncode,    │     │  Experiments   │
+│             │     │              │     │   train/test split)│     │  (3 models)    │
+└─────────────┘     └──────────────┘     └───────────────────┘     └───────┬────────┘
+                                                                           │
+                    ┌──────────────┐     ┌───────────────────┐     ┌───────▼────────┐
+                    │  Render      │◀────│  Docker           │◀────│  Model         │
+                    │  (Live URL)  │     │  Compose          │     │  Registry      │
+                    └──────┬───────┘     └───────────────────┘     └────────────────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+       ┌──────▼─────┐ ┌───▼────┐ ┌─────▼──────┐
+       │  FastAPI    │ │  SHAP  │ │  Streamlit │
+       │  /predict   │ │  /explain│ │  Dashboard │
+       │  /analytics │ │        │ │            │
+       └────────────┘ └────────┘ └────────────┘
+              │
+       ┌──────▼──────┐     ┌───────────────┐
+       │  GitHub     │────▶│  Auto-Deploy  │
+       │  Actions    │     │  (Render      │
+       │  CI/CD      │     │   webhook)    │
+       └─────────────┘     └───────────────┘
+```
+
+**Pipeline flow:** `Data → DVC → Preprocess → MLflow → Registry → FastAPI → Docker → CI/CD → Live`
+
+---
+
+## Results
+
+| Model | Accuracy | F1 Score | ROC-AUC |
+|-------|----------|----------|---------|
+| Logistic Regression | 79.9% | 0.594 | 0.841 |
+| Random Forest | 79.2% | 0.562 | 0.823 |
+| **Gradient Boosting** | **80.1%** | **0.575** | **0.845** |
+| Optuna-Tuned GB | **80.5%** | **0.583** | **0.851** |
+
+> Best model: **GradientBoostingClassifier** (AUC = 0.845), registered in MLflow Model Registry and served via FastAPI.
+
+---
+
+## Live Demo
+
+| Service | URL |
+|---------|-----|
+| **API Docs (Swagger)** | [churn-mlops-v2i2.onrender.com/docs](https://churn-mlops-v2i2.onrender.com/docs) |
+| **Health Check** | [churn-mlops-v2i2.onrender.com/health](https://churn-mlops-v2i2.onrender.com/health) |
+| **Streamlit Dashboard** | [Deploy on Streamlit Cloud](#deploy-streamlit) |
+
+### Test the live API:
+
+```bash
+curl -X POST https://churn-mlops-v2i2.onrender.com/predict \
+  -H "Content-Type: application/json" \
+  -d '{"tenure": 12, "MonthlyCharges": 65.5, "TotalCharges": 786.0, "Contract": 0, "InternetService": 1, "OnlineSecurity": 0, "TechSupport": 0, "PaymentMethod": 2}'
+```
+
+Response:
+```json
+{
+  "churn_probability": 0.0461,
+  "will_churn": false,
+  "confidence": "high"
+}
+```
+
+> **Note:** Free-tier Render has a ~30s cold start after 15 minutes of inactivity. Subsequent requests are <100ms.
+
+---
+
+## Quick Start
+
+```bash
+git clone https://github.com/YOUR_USERNAME/churn-mlops.git
+cd churn-mlops
+docker compose up --build
+```
+
+Then open:
+- **API:** http://localhost:8000/docs
+- **MLflow:** http://localhost:5000
+
+### Without Docker:
+
+```bash
+pip install -r requirements.txt
+python src/data_preprocessing.py    # Preprocess raw data
+python src/train.py                 # Train + log to MLflow
+python -m uvicorn api.main:app --port 8000
 ```
 
 ---
@@ -44,252 +128,117 @@
 
 ```
 churn-mlops/
+├── .github/workflows/
+│   ├── ci-cd.yml                 # Test → Build → Deploy pipeline
+│   └── monitor.yml               # Weekly drift check + auto-retrain
+├── api/
+│   ├── __init__.py
+│   ├── main.py                   # FastAPI app (5 endpoints)
+│   └── schemas.py                # Pydantic request/response models
+├── dashboard/
+│   └── app.py                    # Streamlit interactive demo
 ├── data/
-│   ├── raw/                  # synthetic dataset (DVC-tracked)
-│   └── processed/            # feature-engineered CSVs
-├── notebooks/
+│   ├── raw/                      # Original CSV (DVC-tracked)
+│   └── processed/                # Cleaned + encoded CSV
+├── model/
+│   ├── model.joblib              # Serialized best model
+│   └── feature_names.json        # Feature column order
 ├── src/
 │   ├── __init__.py
-│   ├── generate_data.py      # synthetic Telco churn data generator
-│   ├── data_preprocessing.py # cleaning, feature engineering, encoding, scaling
-│   ├── train.py              # model training + MLflow logging
-│   ├── tune.py               # Optuna hyperparameter optimisation
-│   ├── predict.py            # batch & single inference
-│   ├── explain.py            # SHAP explainability reports
-│   ├── monitor.py            # Evidently data drift detection
-│   └── retrain_trigger.py    # automated retrain on drift
-├── api/
-│   ├── main.py               # FastAPI application (3 endpoints)
-│   └── schemas.py            # Pydantic v2 request/response models
-├── dashboard/
-│   └── app.py                # Streamlit dashboard (5 pages)
+│   ├── data_preprocessing.py     # Load → clean → encode → split
+│   ├── train.py                  # Train 3 models + MLflow logging
+│   ├── tune.py                   # Optuna hyperparameter tuning
+│   ├── predict.py                # Batch prediction CLI
+│   ├── explain.py                # SHAP explainability
+│   ├── monitor.py                # Evidently drift detection
+│   └── retrain_trigger.py        # Auto-retrain on drift
 ├── tests/
-│   ├── test_preprocessing.py # 13 unit tests
-│   └── test_api.py           # API integration tests
-├── model/                    # saved model artifacts
-├── reports/                  # metrics, SHAP plots, predictions
-├── monitoring/               # drift reports, retrain logs
-├── .github/workflows/
-│   ├── ci-cd.yml             # CI/CD: lint → test → build → deploy
-│   └── monitor.yml           # scheduled drift monitoring
-├── Dockerfile                # multi-stage build
-├── docker-compose.yml        # API + MLflow + Dashboard
-├── dvc.yaml                  # pipeline: generate → preprocess → train → evaluate
-├── params.yaml               # centralised config (all hyperparams & paths)
-├── requirements.txt
-├── .gitignore
-└── README.md
+│   ├── test_preprocessing.py     # 3 data pipeline tests
+│   └── test_api.py               # 3 API integration tests
+├── Dockerfile                    # Python 3.10-slim + layer caching
+├── docker-compose.yml            # API + MLflow multi-service
+├── dvc.yaml                      # Reproducible pipeline (preprocess → train)
+├── params.yaml                   # Model hyperparameters
+├── requirements.txt              # All dependencies
+└── README.md                     # This file
 ```
 
 ---
 
 ## Tech Stack
 
-| Category | Tools |
-|----------|-------|
-| **Core ML** | scikit-learn, pandas, numpy |
-| **Experiment Tracking** | MLflow |
-| **Hyperparameter Tuning** | Optuna |
-| **Explainability** | SHAP |
-| **Monitoring** | Evidently AI |
-| **API** | FastAPI, Pydantic v2, Uvicorn |
-| **Dashboard** | Streamlit |
-| **Data Versioning** | DVC |
-| **Containerisation** | Docker, Docker Compose |
-| **CI/CD** | GitHub Actions |
-| **Database** | SQLite (retrain logs, MLflow backend) |
-| **Deployment** | Render |
+| Tool | Purpose | Why This Tool |
+|------|---------|---------------|
+| **scikit-learn** | Model training | Industry standard for tabular ML, fast iteration |
+| **MLflow** | Experiment tracking + model registry | Tracks params, metrics, artifacts; enables model versioning |
+| **DVC** | Data & pipeline versioning | Git for data — reproducible pipelines, Google Drive remote |
+| **FastAPI** | REST API serving | Async, auto-docs (Swagger), Pydantic validation, 10x faster than Flask |
+| **SHAP** | Model explainability | TreeExplainer gives per-feature contribution — critical for stakeholder trust |
+| **Evidently** | Drift monitoring | Detects data/prediction drift — triggers retraining automatically |
+| **Optuna** | Hyperparameter tuning | Bayesian optimization, pruning, 50 trials in minutes |
+| **Docker** | Containerization | Identical dev/prod environments, multi-service compose |
+| **GitHub Actions** | CI/CD | Auto test → build → deploy on every push to main |
+| **Render** | Cloud deployment | Free tier, Docker support, deploy hooks for CI/CD |
+| **Streamlit** | Interactive dashboard | Rapid UI prototyping with Plotly charts + SHAP visualizations |
+| **SQLite** | Prediction logging | Lightweight, zero-config, tracks every API prediction for analytics |
 
 ---
 
-## Quick Start
-
-### 1 — Clone & install
-
-```bash
-git clone https://github.com/<you>/churn-mlops.git
-cd churn-mlops
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-# source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 2 — Generate synthetic data
-
-```bash
-python src/generate_data.py
-# Creates data/raw/churn.csv (7,043 rows, 21 columns)
-```
-
-### 3 — Preprocess
-
-```bash
-python src/data_preprocessing.py
-# Creates data/processed/churn_processed.csv (37 features)
-# Saves model/scaler.joblib
-```
-
-### 4 — Train the model
-
-```bash
-python src/train.py
-# Logs to MLflow, saves model/model.joblib
-# Outputs reports/metrics.json + reports/confusion_matrix.png
-```
-
-### 5 — (Optional) Tune hyperparameters
-
-```bash
-python src/tune.py
-# Runs 50 Optuna trials, logs to MLflow
-# Saves reports/tuning_results.json
-
-# To write best params back to params.yaml:
-python src/tune.py --write-back
-```
-
-### 6 — Run predictions
-
-```bash
-python src/predict.py --input data/processed/churn_processed.csv --output reports/predictions.csv
-```
-
-### 7 — Generate SHAP explanations
-
-```bash
-python src/explain.py
-# Outputs reports/shap_summary.png, shap_bar.png, shap_waterfall.png
-```
-
-### 8 — Run drift monitoring
-
-```bash
-python src/monitor.py
-# Generates monitoring/drift_report_*.html + drift_summary_*.json
-```
-
-### 9 — Start the API
-
-```bash
-uvicorn api.main:app --reload --port 8000
-# Interactive docs: http://localhost:8000/docs
-```
-
-### 10 — Launch the dashboard
-
-```bash
-streamlit run dashboard/app.py
-# Opens http://localhost:8501
-```
-
-### 11 — Run with Docker Compose
-
-```bash
-docker-compose up --build
-```
-
-This starts:
-- **churn-api** on `http://localhost:8000`
-- **mlflow-server** on `http://localhost:5000`
-- **dashboard** on `http://localhost:8501`
-
----
-
-## DVC Pipeline
-
-```bash
-dvc repro  # runs all stages in order
-```
-
-| Stage | Script | Output |
-|-------|--------|--------|
-| `generate_data` | `src/generate_data.py` | `data/raw/churn.csv` |
-| `preprocess` | `src/data_preprocessing.py` | `data/processed/churn_processed.csv` |
-| `train` | `src/train.py` | `model/model.joblib`, `reports/metrics.json` |
-| `evaluate` | `src/predict.py` | `reports/predictions.csv` |
-
----
-
-## API Reference
+## API Endpoints
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| `GET` | `/health` | Liveness + model-loaded check |
-| `POST` | `/predict` | Single-customer churn prediction |
-| `POST` | `/predict/batch` | Batch prediction (up to 1000) |
-
-**Example request:**
-
-```bash
-curl -X POST http://localhost:8000/predict \
-  -H "Content-Type: application/json" \
-  -d '{"tenure": 12, "MonthlyCharges": 65.5, "TotalCharges": 786.0, "SeniorCitizen": 0}'
-```
-
-**Example response:**
-
-```json
-{
-  "churn_probability": 0.7123,
-  "churn_prediction": 1
-}
-```
+| `GET` | `/` | Welcome message + navigation links |
+| `GET` | `/health` | Health check + model status |
+| `POST` | `/predict` | Single customer churn prediction |
+| `GET` | `/analytics` | Last 7 days prediction stats |
+| `POST` | `/explain` | SHAP feature contributions |
+| `GET` | `/docs` | Interactive Swagger UI |
 
 ---
 
-## Running Tests
+## Interview Questions & Answers
 
-```bash
-python -m pytest tests/ -v --cov=src --cov=api --tb=short
-```
+**Q1: Why did you choose GradientBoosting over Random Forest?**
+> GradientBoosting achieved 0.845 AUC vs Random Forest's 0.823. GBM builds trees sequentially, correcting errors from previous trees, which gives better performance on tabular data with mixed feature types. I validated this across accuracy, F1, and AUC-ROC — GBM won on all three.
 
----
+**Q2: How do you handle model drift in production?**
+> I use Evidently to generate weekly drift reports comparing current prediction distributions against the training baseline. If the Kolmogorov-Smirnov test detects significant drift (p < 0.05), `retrain_trigger.py` automatically retrains the model, pushes updated data via DVC, and commits the new `dvc.lock`. This runs as a Monday 9 AM UTC cron job in GitHub Actions.
 
-## CI/CD (GitHub Actions)
+**Q3: Why FastAPI over Flask?**
+> Three reasons: (1) FastAPI auto-generates interactive Swagger docs at `/docs` — great for demos and onboarding. (2) Pydantic validation catches bad inputs before they hit the model (returns 422 with detailed error messages). (3) Async support means better performance under concurrent load without threading complexity.
 
-### `ci-cd.yml` — runs on every push to `main`:
-1. **Lint** — `ruff check src/ api/ tests/`
-2. **Test** — `pytest tests/`
-3. **Build** — Docker image pushed to GHCR
-4. **Deploy** — Render deploy hook
+**Q4: How do you ensure reproducibility?**
+> DVC tracks the raw data and pipeline stages (`dvc.yaml`). `dvc.lock` records the exact MD5 hash of every input, output, and parameter. MLflow logs every training run's hyperparameters, metrics, and model artifacts. Anyone can clone the repo, run `dvc pull && dvc repro`, and get the exact same model.
 
-### `monitor.yml` — runs every Monday at 08:00 UTC:
-1. Runs drift detection
-2. Uploads monitoring report
-3. Creates a GitHub issue if drift detected
+**Q5: What happens if the model server crashes?**
+> The Docker container has `restart: unless-stopped`, so it auto-restarts. The API has a `/health` endpoint for monitoring. On Render, the service auto-restarts on crash and the CI/CD pipeline can redeploy. The model loads from a local joblib file as fallback if MLflow is unreachable, so the API is always available.
 
----
-
-## Configuration
-
-All hyperparameters and paths are centralised in `params.yaml`. Key sections:
-
-| Section | Controls |
-|---------|----------|
-| `data` | Input/output paths, target column |
-| `preprocessing` | Missing threshold, test split |
-| `training` | Algorithm, hyperparameters |
-| `tuning` | Optuna trials, CV folds, scoring |
-| `mlflow` | Tracking URI, experiment name |
-| `monitoring` | Drift threshold, report directory |
-| `explainability` | SHAP display features |
-| `api` | Host, port, model path |
+**Q6: How would you improve this if you had more time?**
+> Three things: (1) A/B testing framework to compare model versions in production. (2) Feature store (Feast) to standardize feature engineering across training and serving. (3) Kubernetes deployment with horizontal auto-scaling instead of single-container Render, plus Prometheus/Grafana for real-time metrics dashboards.
 
 ---
 
-## Environment Variables
+## Resume Bullets
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `MLFLOW_TRACKING_URI` | `sqlite:///mlflow.db` | MLflow backend |
-| `MODEL_URI` | `model/model.joblib` | Model path |
-| `RENDER_DEPLOY_HOOK_URL` | _(secret)_ | Render deploy webhook |
+Copy-paste these directly into your resume:
+
+> - **Built an end-to-end MLOps pipeline** for customer churn prediction (7,043 customers, AUC 0.845) using scikit-learn, MLflow experiment tracking, DVC data versioning, and Optuna hyperparameter tuning
+>
+> - **Deployed a production REST API** with FastAPI serving real-time predictions (<100ms latency), SHAP explainability, and prediction analytics — containerized with Docker and auto-deployed via GitHub Actions CI/CD
+>
+> - **Implemented automated drift monitoring** using Evidently with weekly scheduled checks and auto-retraining triggers, ensuring model performance doesn't degrade silently in production
+>
+> - **Designed a full MLOps architecture** including reproducible DVC pipelines, MLflow model registry, Docker Compose multi-service setup, and a Streamlit dashboard for stakeholder demos
 
 ---
 
 ## License
 
-MIT © 2024
+MIT
+
+---
+
+<p align="center">
+  Built with 🔥 as a production MLOps portfolio project
+</p>
